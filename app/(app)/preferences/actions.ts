@@ -12,6 +12,8 @@ export async function savePreferences(form: FormData) {
     skillLevel: oneOf(db.SKILL_LEVELS, text(form, "skillLevel")),
     location: text(form, "location"),
     playStyle: oneOf(db.PLAY_STYLES, text(form, "playStyle")),
+    preferredDistance: oneOf(db.DISTANCE_RANGES, text(form, "preferredDistance")),
+    preferredGroupSize: oneOf(db.GROUP_SIZES, text(form, "preferredGroupSize")),
   });
   revalidatePath("/preferences");
   redirect("/preferences?saved=1");

@@ -1,5 +1,5 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
-import { getProfile, PLAY_STYLES, SKILL_LEVELS, SPORTS } from "@/lib/db";
+import { getProfile, PLAY_STYLES, SKILL_LEVELS, SPORTS, GROUP_SIZES, DISTANCE_RANGES } from "@/lib/db";
 import { savePreferences } from "./actions";
 import { Card } from "../components/Card";
 
@@ -47,6 +47,34 @@ export default async function PreferencesPage({
             defaultValue={profile?.location}
             className="w-full rounded border p-2"
           />
+        </div>
+
+        <div>
+          <label className="mb-1 block font-medium">Preferred Distance</label>
+          <select
+            name="preferredDistance"
+            defaultValue={profile?.preferredDistance}
+            className="w-full rounded border p-2"
+          >
+            <option value="">Select…</option>
+            {DISTANCE_RANGES.map((distance) => (
+              <option key={distance}>{distance}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1 block font-medium">Preferred Group Size</label>
+          <select
+            name="preferredGroupSize"
+            defaultValue={profile?.preferredGroupSize}
+            className="w-full rounded border p-2"
+          >
+            <option value="">Select…</option>
+            {GROUP_SIZES.map((size) => (
+              <option key={size}>{size}</option>
+            ))}
+          </select>
         </div>
 
         <div>
