@@ -3,14 +3,17 @@ import { withAuth } from "@workos-inc/authkit-nextjs";
 import {
   DAYS,
   getAvailability,
+  getProfile,
   getProfiles,
   getRequestsFor,
+  GROUP_SIZES,
   SKILL_LEVELS,
   SPORTS,
   type Availability,
   type PlayRequest,
   type Profile,
 } from "@/lib/db";
+import { CITIES, distanceMiles } from "@/lib/cities";
 import { formatDate, formatTime, hasPassed } from "@/lib/time";
 import { Card } from "../components/Card";
 import RequestForm from "./RequestForm";
@@ -18,10 +21,24 @@ import RequestForm from "./RequestForm";
 type Filters = {
   sport?: string;
   skill?: string;
-  location?: string;
+  near?: string;
+  distance?: string;
+  group?: string;
   day?: string;
   search?: string;
 };
+
+const DISTANCE_OPTIONS = ["5", "10", "25", "50"];
+const GROUP_OPTIONS = GROUP_SIZES.filter((size) => size !== "Any");
+
+// A saved preferred distance as a search radius. "50+ miles" means no limit.
+function preferredMiles(preference = "") {
+  return preference.endsWith("+ miles") ? "" : String(parseInt(preference) || "");
+}
+
+function formatDistance(miles: number) {
+  return miles < 1 ? "Same city" : `~${Math.round(miles)} mi away`;
+}
 
 export default async function PlayersPage({
   searchParams,
@@ -35,14 +52,27 @@ export default async function PlayersPage({
   const hasSearched = filters.search === "true";
   const shouldShowResults = hasSearched && !!selectedSport;
 
+  // Near, distance, and group size start from your saved preferences until
+  // you pick something else.
+  const me = await getProfile(user.id);
+  const near = CITIES.find((city) => city === (filters.near ?? me?.location));
+  const distance = DISTANCE_OPTIONS.find(
+    (miles) => miles === (filters.distance ?? preferredMiles(me?.preferredDistance))
+  );
+  const group = GROUP_OPTIONS.find(
+    (size) => size === (filters.group ?? me?.preferredGroupSize)
+  );
+  const maxMiles = near && distance ? Number(distance) : undefined;
+
   const [profiles, availability, requests] = shouldShowResults
     ? await Promise.all([getProfiles(), getAvailability(), getRequestsFor(user.id)])
     : [[], [], []];
 
-  const players = profiles
+  const matches = profiles
     .filter((p) => p.id !== user.id)
     .map((p) => ({
       ...p,
+      miles: near ? distanceMiles(near, p.location) : undefined,
       availability: availability.filter((a) => a.userId === p.id),
       requests: requests.filter(
         (r) => r.fromUserId === p.id || r.toUserId === p.id
@@ -52,18 +82,29 @@ export default async function PlayersPage({
       (p) =>
         p.sports.includes(selectedSport!) &&
         (!filters.skill || p.skillLevel === filters.skill) &&
-        (!filters.location ||
-          p.location
-            .toLowerCase()
-            .includes(filters.location.toLowerCase())) &&
+        // Players who haven't picked a group size are open to any.
+        (!group ||
+          !p.preferredGroupSize ||
+          p.preferredGroupSize === group ||
+          p.preferredGroupSize === "Any") &&
         (!filters.day ||
           p.availability.some((a) => a.day === filters.day))
     );
 
+  const players = matches.filter(
+    (p) => !maxMiles || (p.miles !== undefined && p.miles <= maxMiles)
+  );
+  const playersWithoutCity = maxMiles
+    ? matches.filter((p) => p.miles === undefined).length
+    : 0;
+  if (near) {
+    players.sort((a, b) => (a.miles ?? Infinity) - (b.miles ?? Infinity));
+  }
+
   return (
     <Card
       title="Find Players"
-      description="Find players based on sport, skill level, location, and availability."
+      description="Find players based on sport, skill level, distance, group size, and availability."
     >
       <form
         key={shouldShowResults ? "searched" : "cleared"}
@@ -110,14 +151,56 @@ export default async function PlayersPage({
 
         <div>
           <label className="mb-1 block text-sm font-medium">
-            Location
+            Near
           </label>
-          <input
-            name="location"
-            placeholder="City or area"
-            defaultValue={filters.location || ""}
+          <select
+            name="near"
+            defaultValue={near ?? ""}
             className="w-full rounded border p-2"
-          />
+          >
+            <option value="">Anywhere</option>
+            {CITIES.map((city) => (
+              <option key={city} value={city}>
+                {city}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium">
+            Distance
+          </label>
+          <select
+            name="distance"
+            defaultValue={distance ?? ""}
+            className="w-full rounded border p-2"
+          >
+            <option value="">Any distance</option>
+            {DISTANCE_OPTIONS.map((miles) => (
+              <option key={miles} value={miles}>
+                Within {miles} miles
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium">
+            Group Size
+          </label>
+          <select
+            name="group"
+            defaultValue={group ?? ""}
+            className="w-full rounded border p-2"
+          >
+            <option value="">Any group size</option>
+            {GROUP_OPTIONS.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>
@@ -151,7 +234,24 @@ export default async function PlayersPage({
         >
           Clear Filters
         </Link>
+
+        <p className="col-span-2 text-sm text-gray-500">
+          Near, Distance, and Group Size start from your{" "}
+          <Link href="/preferences" className="text-blue-600 underline">
+            Sport Preferences
+          </Link>
+          .
+        </p>
       </form>
+
+      {playersWithoutCity > 0 && (
+        <p className="mb-3 text-sm text-gray-500">
+          {playersWithoutCity === 1
+            ? "1 more player hasn't set a city, so they don't"
+            : `${playersWithoutCity} more players haven't set a city, so they don't`}{" "}
+          show up when searching by distance.
+        </p>
+      )}
 
       {!shouldShowResults ? (
         <p className="text-gray-500">
@@ -168,7 +268,12 @@ export default async function PlayersPage({
               <h3 className="text-lg font-semibold">{p.name}</h3>
 
               <p className="text-sm text-gray-600">
-                {[p.skillLevel, p.playStyle, p.location]
+                {[
+                  p.skillLevel,
+                  p.playStyle,
+                  p.location,
+                  p.miles !== undefined && formatDistance(p.miles),
+                ]
                   .filter(Boolean)
                   .join(" · ") || "No preferences set yet"}
               </p>
@@ -176,6 +281,23 @@ export default async function PlayersPage({
               {p.sports.length > 0 && (
                 <p className="mt-2 text-sm">
                   <strong>Sports:</strong> {p.sports.join(", ")}
+                </p>
+              )}
+
+              {(p.preferredGroupSize || p.preferredDistance) && (
+                <p className="mt-2 text-sm">
+                  <strong>Prefers:</strong>{" "}
+                  {[
+                    p.preferredGroupSize === "Any"
+                      ? "Any group size"
+                      : p.preferredGroupSize,
+                    p.preferredDistance &&
+                      (p.preferredDistance.endsWith("+ miles")
+                        ? `Travels ${p.preferredDistance}`
+                        : `Within ${p.preferredDistance}`),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </p>
               )}
 

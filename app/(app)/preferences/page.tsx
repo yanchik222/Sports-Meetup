@@ -1,5 +1,6 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { getProfile, PLAY_STYLES, SKILL_LEVELS, SPORTS, GROUP_SIZES, DISTANCE_RANGES } from "@/lib/db";
+import { CITIES } from "@/lib/cities";
 import { savePreferences } from "./actions";
 import { Card } from "../components/Card";
 
@@ -11,6 +12,8 @@ export default async function PreferencesPage({
   const { user } = await withAuth({ ensureSignedIn: true });
   const profile = await getProfile(user.id);
   const { saved } = await searchParams;
+  // Locations saved as free text before the city list existed.
+  const oldLocation = profile?.location && !CITIES.includes(profile.location) ? profile.location : "";
 
   return (
     <Card title="Sport Preferences" description="Tell other players what you play and how you like to play.">
@@ -41,12 +44,18 @@ export default async function PreferencesPage({
 
         <div>
           <label className="mb-1 block font-medium">Location</label>
-          <input
-            name="location"
-            placeholder="Ex: San Jose, CA"
-            defaultValue={profile?.location}
-            className="w-full rounded border p-2"
-          />
+          <select name="location" defaultValue={oldLocation ? "" : profile?.location} className="w-full rounded border p-2">
+            <option value="">Select…</option>
+            {CITIES.map((city) => (
+              <option key={city}>{city}</option>
+            ))}
+          </select>
+          {oldLocation && (
+            <p className="mt-1 text-sm text-amber-700">
+              Your saved location &ldquo;{oldLocation}&rdquo; isn&apos;t in the list. Pick the closest city so players can
+              find you by distance.
+            </p>
+          )}
         </div>
 
         <div>
