@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useState, useSyncExternalStore } from "react";
-import { sendRequest, type SendRequestState } from "../requests/actions";
-import { dayOfWeek, formatTime, nextDateFor, to12HourParts, to24Hour, toDateString, toTimeString } from "@/lib/time";
+import { useActionState, useState } from "react";
+import { sendRequest, type RequestFormState } from "../requests/actions";
+import { DateField, DurationField, TimeField, useSchedule } from "../components/ScheduleFields";
+import { dayOfWeek, formatTime, nextDateFor, toMinutes, toTimeString } from "@/lib/time";
 
 type Slot = { id: string; day: string; startTime: string; endTime: string };
 
@@ -14,52 +15,35 @@ type Player = {
   availability: Slot[];
 };
 
-const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1));
-const MINUTES = ["00", "15", "30", "45"];
-
-// Today's date in the browser's timezone. Empty during server rendering so the
-// date picker's minimum always matches the player's own calendar.
-function useToday() {
-  return useSyncExternalStore(
-    () => () => {},
-    () => toDateString(new Date()),
-    () => "",
-  );
-}
-
 export default function RequestForm({ player, defaultSport }: { player: Player; defaultSport: string }) {
-  const [state, formAction, pending] = useActionState<SendRequestState, FormData>(sendRequest, {});
-  const today = useToday();
+  const [state, formAction, pending] = useActionState<RequestFormState, FormData>(sendRequest, {});
+  const schedule = useSchedule();
 
   const [sport, setSport] = useState(player.sports.includes(defaultSport) ? defaultSport : player.sports[0] ?? "");
   const [location, setLocation] = useState(player.location);
-  const [date, setDate] = useState("");
-  const [hour, setHour] = useState("12");
-  const [minute, setMinute] = useState("00");
-  const [period, setPeriod] = useState("PM");
   const [message, setMessage] = useState("");
 
-  const time = to24Hour(hour, minute, period);
+  // The whole match has to fit inside one of the player's time slots.
+  const start = toMinutes(schedule.time);
   const fitsAvailability =
-    !date ||
-    player.availability.some((a) => a.day === dayOfWeek(date) && a.startTime <= time && time < a.endTime);
+    !schedule.date ||
+    player.availability.some(
+      (a) =>
+        a.day === dayOfWeek(schedule.date) &&
+        toMinutes(a.startTime) <= start &&
+        start + schedule.duration <= toMinutes(a.endTime),
+    );
 
   // Fill in the next upcoming date and start time for one of the player's slots.
   function pickSlot(slot: Slot) {
     const now = new Date();
     const from = slot.startTime > toTimeString(now) ? now : new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    const parts = to12HourParts(slot.startTime);
-
-    setDate(nextDateFor(slot.day, from));
-    setHour(parts.hour);
-    setMinute(parts.minute);
-    setPeriod(parts.period);
+    schedule.set({ date: nextDateFor(slot.day, from), time: slot.startTime });
   }
 
   return (
     <form action={formAction} className="mt-3 grid grid-cols-2 gap-3">
       <input type="hidden" name="toUserId" value={player.id} />
-      <input type="hidden" name="time" value={time} />
 
       {player.availability.length > 0 && (
         <div className="col-span-2 flex flex-wrap items-center gap-2 text-sm">
@@ -94,7 +78,11 @@ export default function RequestForm({ player, defaultSport }: { player: Player; 
         </select>
       </div>
 
-      <div>
+      <DurationField schedule={schedule} />
+      <DateField schedule={schedule} />
+      <TimeField schedule={schedule} />
+
+      <div className="col-span-2">
         <label className="mb-1 block text-sm font-medium">Where</label>
         <input
           name="location"
@@ -104,51 +92,6 @@ export default function RequestForm({ player, defaultSport }: { player: Player; 
           onChange={(event) => setLocation(event.target.value)}
           className="w-full rounded border p-2"
         />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium">Date</label>
-        <input
-          type="date"
-          name="date"
-          required
-          min={today || undefined}
-          value={date}
-          onChange={(event) => setDate(event.target.value)}
-          className="w-full rounded border p-2"
-        />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium">Time</label>
-        <div className="flex gap-1">
-          <select value={hour} onChange={(event) => setHour(event.target.value)} className="w-1/3 rounded border p-2">
-            {HOURS.map((h) => (
-              <option key={h} value={h}>
-                {h}
-              </option>
-            ))}
-          </select>
-          <select
-            value={minute}
-            onChange={(event) => setMinute(event.target.value)}
-            className="w-1/3 rounded border p-2"
-          >
-            {MINUTES.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-          <select
-            value={period}
-            onChange={(event) => setPeriod(event.target.value)}
-            className="w-1/3 rounded border p-2"
-          >
-            <option value="AM">AM</option>
-            <option value="PM">PM</option>
-          </select>
-        </div>
       </div>
 
       <input

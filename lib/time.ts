@@ -3,6 +3,10 @@
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+// How long a match can be, in minutes.
+export const DURATIONS = [30, 60, 90, 120, 150, 180];
+export const DEFAULT_DURATION = 60;
+
 function parseDate(date: string) {
   const [year, month, day] = date.split("-").map(Number);
   return new Date(year, month - 1, day);
@@ -39,6 +43,29 @@ export function to24Hour(hour: string, minute: string, period: string) {
 export function to12HourParts(time: string) {
   const [hours, minutes] = time.split(":").map(Number);
   return { hour: String(hours % 12 || 12), minute: pad(minutes), period: hours >= 12 ? "PM" : "AM" };
+}
+
+export function toMinutes(time: string) {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+// Ex: ("23:30", 60) -> "00:30"
+export function addMinutes(time: string, minutes: number) {
+  const total = (toMinutes(time) + minutes) % (24 * 60);
+  return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
+}
+
+// Ex: 90 -> "1.5 hrs"
+export function formatDuration(minutes: number) {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = minutes / 60;
+  return `${hours} ${hours === 1 ? "hr" : "hrs"}`;
+}
+
+// Ex: ("17:30", 60) -> "5:30 PM - 6:30 PM"
+export function formatTimeRange(time: string, duration: number) {
+  return `${formatTime(time)} - ${formatTime(addMinutes(time, duration))}`;
 }
 
 export function toDateString(date: Date) {

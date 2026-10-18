@@ -14,6 +14,7 @@ import {
   type Profile,
 } from "@/lib/db";
 import { CITIES, distanceMiles } from "@/lib/cities";
+import { proposerOf } from "@/lib/schedule";
 import { formatDate, formatTime, hasPassed } from "@/lib/time";
 import { Card } from "../components/Card";
 import RequestForm from "./RequestForm";
@@ -356,11 +357,11 @@ function RequestStatus({
 
       {pending ? (
         <p className="rounded bg-blue-50 p-3 text-sm text-blue-800">
-          {pending.fromUserId === userId
+          {proposerOf(pending) === userId
             ? `You sent a request for ${pending.sport} on ${when(pending)}. Waiting for ${player.name} to respond.`
             : `${player.name} sent you a request for ${pending.sport} on ${when(pending)}.`}{" "}
           <Link href="/requests" className="font-medium underline">
-            {pending.fromUserId === userId ? "View request" : "Respond"}
+            {proposerOf(pending) === userId ? "View request" : "Respond"}
           </Link>
         </p>
       ) : (

@@ -1,6 +1,7 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { getProfiles, getRequestsFor } from "@/lib/db";
-import { formatDate, formatTime } from "@/lib/time";
+import { durationOf } from "@/lib/schedule";
+import { formatDate, formatTimeRange } from "@/lib/time";
 import { Card } from "../components/Card";
 
 export default async function MatchesPage() {
@@ -26,7 +27,7 @@ export default async function MatchesPage() {
               <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
                 <dt className="text-gray-500">Date</dt>
                 <dd>
-                  {formatDate(m.date)} at {formatTime(m.time)}
+                  {formatDate(m.date)}, {formatTimeRange(m.time, durationOf(m))}
                 </dd>
                 <dt className="text-gray-500">Location</dt>
                 <dd>{m.location || "—"}</dd>
