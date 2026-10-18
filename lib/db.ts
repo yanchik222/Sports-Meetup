@@ -2,6 +2,7 @@ import "server-only";
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
+import { hasPassed } from "./time";
 
 // Temporary JSON-file storage so features work end to end before we pick a
 // real database. Everything goes through this module, so swapping it out
@@ -56,6 +57,8 @@ export type PlayRequest = {
   message: string;
   status: RequestStatus;
   createdAt: string;
+  updatedAt?: string;
+  cancelledBy?: string;
   completedAt?: string;
   result?: string;
 };
@@ -151,9 +154,22 @@ export async function getRequestsFor(userId: string) {
   return (await load()).requests.filter((r) => r.fromUserId === userId || r.toUserId === userId);
 }
 
-export async function createRequest(req: Omit<PlayRequest, "id" | "status" | "createdAt">) {
-  await update((data) => {
+// Returns false if the two players already have a pending request between them
+// (requests for dates that have passed don't count).
+export async function createRequest(req: Pick<PlayRequest, "fromUserId" | "toUserId" | "sport" | "date" | "time" | "location" | "message">) {
+  return update((data) => {
+    const players = [req.fromUserId, req.toUserId];
+    const alreadyPending = data.requests.some(
+      (r) =>
+        r.status === "pending" &&
+        !hasPassed(r.date) &&
+        players.includes(r.fromUserId) &&
+        players.includes(r.toUserId),
+    );
+    if (alreadyPending) return false;
+
     data.requests.push({ id: randomUUID(), status: "pending", createdAt: new Date().toISOString(), ...req });
+    return true;
   });
 }
 
@@ -161,12 +177,12 @@ export async function createRequest(req: Omit<PlayRequest, "id" | "status" | "cr
 export async function updateRequest(
   id: string,
   allowed: (req: PlayRequest) => boolean,
-  changes: Partial<Pick<PlayRequest, "status" | "completedAt" | "result">>,
+  changes: Partial<Pick<PlayRequest, "status" | "cancelledBy" | "completedAt" | "result">>,
 ) {
   return update((data) => {
     const req = data.requests.find((r) => r.id === id);
     if (!req || !allowed(req)) return false;
-    Object.assign(req, changes);
+    Object.assign(req, changes, { updatedAt: new Date().toISOString() });
     return true;
   });
 }

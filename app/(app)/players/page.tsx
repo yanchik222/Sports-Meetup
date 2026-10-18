@@ -4,11 +4,16 @@ import {
   DAYS,
   getAvailability,
   getProfiles,
+  getRequestsFor,
   SKILL_LEVELS,
   SPORTS,
+  type Availability,
+  type PlayRequest,
+  type Profile,
 } from "@/lib/db";
-import { sendRequest } from "../requests/actions";
+import { formatDate, formatTime, hasPassed } from "@/lib/time";
 import { Card } from "../components/Card";
+import RequestForm from "./RequestForm";
 
 type Filters = {
   sport?: string;
@@ -17,14 +22,6 @@ type Filters = {
   day?: string;
   search?: string;
 };
-
-function formatTime(time: string) {
-  const [hours, minutes] = time.split(":").map(Number);
-  const period = hours >= 12 ? "PM" : "AM";
-  const hour = hours % 12 || 12;
-
-  return `${hour}:${String(minutes).padStart(2, "0")} ${period}`;
-}
 
 export default async function PlayersPage({
   searchParams,
@@ -38,15 +35,18 @@ export default async function PlayersPage({
   const hasSearched = filters.search === "true";
   const shouldShowResults = hasSearched && !!selectedSport;
 
-  const [profiles, availability] = shouldShowResults
-    ? await Promise.all([getProfiles(), getAvailability()])
-    : [[], []];
+  const [profiles, availability, requests] = shouldShowResults
+    ? await Promise.all([getProfiles(), getAvailability(), getRequestsFor(user.id)])
+    : [[], [], []];
 
   const players = profiles
     .filter((p) => p.id !== user.id)
     .map((p) => ({
       ...p,
       availability: availability.filter((a) => a.userId === p.id),
+      requests: requests.filter(
+        (r) => r.fromUserId === p.id || r.toUserId === p.id
+      ),
     }))
     .filter(
       (p) =>
@@ -191,72 +191,74 @@ export default async function PlayersPage({
                 </p>
               )}
 
-              <details className="mt-3">
-                <summary className="cursor-pointer font-medium text-blue-600">
-                  Request to play
-                </summary>
-
-                <form
-                  action={sendRequest}
-                  className="mt-3 grid grid-cols-2 gap-3"
-                >
-                  <input
-                    type="hidden"
-                    name="toUserId"
-                    value={p.id}
-                  />
-
-                  <select
-                    name="sport"
-                    required
-                    className="rounded border p-2"
-                  >
-                    {p.sports.map((sport) => (
-                      <option key={sport} value={sport}>
-                        {sport}
-                      </option>
-                    ))}
-                  </select>
-
-                  <input
-                    name="location"
-                    placeholder="Where"
-                    defaultValue={p.location}
-                    className="rounded border p-2"
-                  />
-
-                  <input
-                    type="date"
-                    name="date"
-                    required
-                    className="rounded border p-2"
-                  />
-
-                  <input
-                    type="time"
-                    name="time"
-                    required
-                    className="rounded border p-2"
-                  />
-
-                  <input
-                    name="message"
-                    placeholder="Message (optional)"
-                    className="col-span-2 rounded border p-2"
-                  />
-
-                  <button
-                    type="submit"
-                    className="col-span-2 rounded bg-blue-600 px-4 py-2 font-medium text-white"
-                  >
-                    Send Request
-                  </button>
-                </form>
-              </details>
+              <RequestStatus
+                player={p}
+                userId={user.id}
+                sport={selectedSport!}
+              />
             </div>
           ))}
         </div>
       )}
     </Card>
+  );
+}
+
+// Shows any pending or upcoming match with this player, or the request form
+// when there isn't an active pending request between you.
+function RequestStatus({
+  player,
+  userId,
+  sport,
+}: {
+  player: Profile & { availability: Availability[]; requests: PlayRequest[] };
+  userId: string;
+  sport: string;
+}) {
+  const pending = player.requests.find(
+    (r) => r.status === "pending" && !hasPassed(r.date)
+  );
+  const upcoming = player.requests
+    .filter((r) => r.status === "accepted" && !hasPassed(r.date))
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const when = (r: { date: string; time: string }) =>
+    `${formatDate(r.date)} at ${formatTime(r.time)}`;
+
+  return (
+    <div className="mt-3 space-y-2">
+      {upcoming.map((r) => (
+        <p key={r.id} className="text-sm text-green-700">
+          <strong>Upcoming:</strong> {r.sport} on {when(r)}
+        </p>
+      ))}
+
+      {pending ? (
+        <p className="rounded bg-blue-50 p-3 text-sm text-blue-800">
+          {pending.fromUserId === userId
+            ? `You sent a request for ${pending.sport} on ${when(pending)}. Waiting for ${player.name} to respond.`
+            : `${player.name} sent you a request for ${pending.sport} on ${when(pending)}.`}{" "}
+          <Link href="/requests" className="font-medium underline">
+            {pending.fromUserId === userId ? "View request" : "Respond"}
+          </Link>
+        </p>
+      ) : (
+        <details>
+          <summary className="cursor-pointer font-medium text-blue-600">
+            Request to play
+          </summary>
+
+          <RequestForm
+            player={{
+              id: player.id,
+              name: player.name,
+              sports: player.sports,
+              location: player.location,
+              availability: player.availability,
+            }}
+            defaultSport={sport}
+          />
+        </details>
+      )}
+    </div>
   );
 }
