@@ -1,5 +1,6 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { getProfiles, getRequestsFor } from "@/lib/db";
+import { formatDate, formatTime } from "@/lib/time";
 import { Card } from "../components/Card";
 
 export default async function MatchesPage() {
@@ -20,12 +21,12 @@ export default async function MatchesPage() {
           {matches.map((m) => (
             <details key={m.id} className="rounded border p-3">
               <summary className="cursor-pointer font-medium">
-                {m.sport} with {nameOf(m.fromUserId === user.id ? m.toUserId : m.fromUserId)} · {m.date}
+                {m.sport} with {nameOf(m.fromUserId === user.id ? m.toUserId : m.fromUserId)} · {formatDate(m.date)}
               </summary>
               <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
                 <dt className="text-gray-500">Date</dt>
                 <dd>
-                  {m.date} at {m.time}
+                  {formatDate(m.date)} at {formatTime(m.time)}
                 </dd>
                 <dt className="text-gray-500">Location</dt>
                 <dd>{m.location || "—"}</dd>
