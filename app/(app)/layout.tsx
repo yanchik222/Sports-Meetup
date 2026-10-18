@@ -8,9 +8,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   await upsertUser(user);
 
   return (
-    <div className="flex flex-1 flex-col bg-gray-100 md:flex-row">
+    <div className="flex min-h-dvh flex-1 flex-col md:flex-row">
       <Sidebar />
-      <div className="flex flex-1 flex-col">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
     </div>
   );
 }

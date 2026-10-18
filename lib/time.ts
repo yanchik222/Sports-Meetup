@@ -85,6 +85,11 @@ export function dayOfWeek(date: string) {
   return WEEKDAYS[parseDate(date).getDay()];
 }
 
+// Ex: "2026-10-24" -> "Sat, Oct 24"
+export function formatShortDate(date: string) {
+  return parseDate(date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
 // Ex: "2026-10-24" -> "Sat, Oct 24, 2026"
 export function formatDate(date: string) {
   return parseDate(date).toLocaleDateString("en-US", {

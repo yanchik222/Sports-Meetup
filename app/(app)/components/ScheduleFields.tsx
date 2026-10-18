@@ -45,7 +45,7 @@ export function DateField({ schedule }: { schedule: Schedule }) {
 
   return (
     <div>
-      <label className="mb-1 block text-sm font-medium">Date</label>
+      <label className="label">Date</label>
       <input
         type="date"
         name="date"
@@ -53,7 +53,7 @@ export function DateField({ schedule }: { schedule: Schedule }) {
         min={today || undefined}
         value={schedule.date}
         onChange={(event) => schedule.set({ date: event.target.value })}
-        className="w-full rounded border p-2"
+        className="field"
       />
     </div>
   );
@@ -62,13 +62,13 @@ export function DateField({ schedule }: { schedule: Schedule }) {
 export function TimeField({ schedule }: { schedule: Schedule }) {
   return (
     <div>
-      <label className="mb-1 block text-sm font-medium">Time</label>
+      <label className="label">Time</label>
       <input type="hidden" name="time" value={schedule.time} />
-      <div className="flex gap-1">
+      <div className="flex gap-1.5">
         <select
           value={schedule.hour}
           onChange={(event) => schedule.set({ hour: event.target.value })}
-          className="w-1/3 rounded border p-2"
+          className="field w-1/3 pr-7 pl-3"
         >
           {HOURS.map((h) => (
             <option key={h} value={h}>
@@ -79,7 +79,7 @@ export function TimeField({ schedule }: { schedule: Schedule }) {
         <select
           value={schedule.minute}
           onChange={(event) => schedule.set({ minute: event.target.value })}
-          className="w-1/3 rounded border p-2"
+          className="field w-1/3 pr-7 pl-3"
         >
           {MINUTES.map((m) => (
             <option key={m} value={m}>
@@ -90,7 +90,7 @@ export function TimeField({ schedule }: { schedule: Schedule }) {
         <select
           value={schedule.period}
           onChange={(event) => schedule.set({ period: event.target.value })}
-          className="w-1/3 rounded border p-2"
+          className="field w-1/3 pr-7 pl-3"
         >
           <option value="AM">AM</option>
           <option value="PM">PM</option>
@@ -103,12 +103,12 @@ export function TimeField({ schedule }: { schedule: Schedule }) {
 export function DurationField({ schedule }: { schedule: Schedule }) {
   return (
     <div>
-      <label className="mb-1 block text-sm font-medium">Length</label>
+      <label className="label">Length</label>
       <select
         name="duration"
         value={schedule.duration}
         onChange={(event) => schedule.set({ duration: Number(event.target.value) })}
-        className="w-full rounded border p-2"
+        className="field"
       >
         {DURATIONS.map((minutes) => (
           <option key={minutes} value={minutes}>

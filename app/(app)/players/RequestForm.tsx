@@ -42,18 +42,18 @@ export default function RequestForm({ player, defaultSport }: { player: Player; 
   }
 
   return (
-    <form action={formAction} className="mt-3 grid grid-cols-2 gap-3">
+    <form action={formAction} className="mt-3 grid gap-4 rounded-xl bg-slate-50 p-4 @lg:grid-cols-2 @lg:p-5">
       <input type="hidden" name="toUserId" value={player.id} />
 
       {player.availability.length > 0 && (
-        <div className="col-span-2 flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-gray-600">Pick one of their times:</span>
+        <div className="flex flex-wrap items-center gap-2 text-sm @lg:col-span-2">
+          <span className="text-sm text-slate-600">Pick one of their times:</span>
           {player.availability.map((a) => (
             <button
               key={a.id}
               type="button"
               onClick={() => pickSlot(a)}
-              className="rounded border px-2 py-1 hover:bg-gray-100"
+              className="h-9 rounded-full border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:border-brand-400 hover:bg-brand-50 active:translate-y-px"
             >
               {a.day.slice(0, 3)} {formatTime(a.startTime)}
             </button>
@@ -62,13 +62,13 @@ export default function RequestForm({ player, defaultSport }: { player: Player; 
       )}
 
       <div>
-        <label className="mb-1 block text-sm font-medium">Sport</label>
+        <label className="label">Sport</label>
         <select
           name="sport"
           required
           value={sport}
           onChange={(event) => setSport(event.target.value)}
-          className="w-full rounded border p-2"
+          className="field"
         >
           {player.sports.map((s) => (
             <option key={s} value={s}>
@@ -82,15 +82,15 @@ export default function RequestForm({ player, defaultSport }: { player: Player; 
       <DateField schedule={schedule} />
       <TimeField schedule={schedule} />
 
-      <div className="col-span-2">
-        <label className="mb-1 block text-sm font-medium">Where</label>
+      <div className="@lg:col-span-2">
+        <label className="label">Where</label>
         <input
           name="location"
           placeholder="Court, park, or gym"
           maxLength={100}
           value={location}
           onChange={(event) => setLocation(event.target.value)}
-          className="w-full rounded border p-2"
+          className="field"
         />
       </div>
 
@@ -100,32 +100,32 @@ export default function RequestForm({ player, defaultSport }: { player: Player; 
         maxLength={300}
         value={message}
         onChange={(event) => setMessage(event.target.value)}
-        className="col-span-2 rounded border p-2"
+        className="field @lg:col-span-2"
       />
 
       {player.availability.length === 0 ? (
-        <p className="col-span-2 text-sm text-gray-500">{player.name} hasn&apos;t added availability yet.</p>
+        <p className="text-sm text-slate-500 @lg:col-span-2">{player.name} hasn&apos;t added availability yet.</p>
       ) : (
         !fitsAvailability && (
-          <p className="col-span-2 text-sm text-amber-700">
+          <p className="text-sm font-medium text-amber-800 @lg:col-span-2">
             {player.name} isn&apos;t usually available then. You can still send the request.
           </p>
         )
       )}
 
       {state.error && (
-        <p aria-live="polite" className="col-span-2 text-sm text-red-600">
+        <p aria-live="polite" className="text-sm font-medium text-red-700 @lg:col-span-2">
           {state.error}
         </p>
       )}
-      {state.sent && <p className="col-span-2 text-sm text-green-700">Request sent!</p>}
+      {state.sent && <p className="text-sm font-semibold text-emerald-700 @lg:col-span-2">Request sent.</p>}
 
       <button
         type="submit"
         disabled={pending}
-        className="col-span-2 rounded bg-blue-600 px-4 py-2 font-medium text-white disabled:opacity-50"
+        className="btn btn-primary @lg:col-span-2 @lg:justify-self-start"
       >
-        {pending ? "Sending…" : "Send Request"}
+        {pending ? "Sending…" : "Send request"}
       </button>
     </form>
   );

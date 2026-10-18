@@ -2,7 +2,7 @@ import Link from "next/link";
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { getProfiles, getRequests, type PlayRequest } from "@/lib/db";
 import { durationOf, findConflict, proposerOf, responderOf } from "@/lib/schedule";
-import { formatDate, formatTime, formatTimeRange, hasArrived, hasPassed } from "@/lib/time";
+import { formatDate, formatShortDate, formatTime, formatTimeRange, hasArrived, hasPassed } from "@/lib/time";
 import {
   acceptNewTime,
   acceptRequest,
@@ -12,7 +12,8 @@ import {
   keepCurrentTime,
 } from "./actions";
 import ChangeTimeForm from "./ChangeTimeForm";
-import { Card } from "../components/Card";
+import { ClockIcon } from "../components/icons";
+import { Empty, PageShell, Section } from "../components/ui";
 
 type Slot = { date: string; time: string; duration?: number };
 
@@ -61,8 +62,8 @@ export default async function RequestsPage() {
   const closed = requests.filter((r) => r.status === "declined" || r.status === "cancelled").sort(byLastUpdate);
 
   return (
-    <Card title="Play Requests" description="Send, accept, decline, reschedule, and cancel play requests.">
-      <Section title="Incoming" count={incoming.length} empty="No incoming requests.">
+    <PageShell title="Play requests" description="Send, accept, decline, reschedule, and cancel play requests.">
+      <RequestList title="Incoming" count={incoming.length} empty="No incoming requests.">
         {incoming.map((r) => {
           const passed = hasPassed(r.date);
           const conflict = conflictNote(r, r);
@@ -72,6 +73,13 @@ export default async function RequestsPage() {
               request={r}
               who={`From ${otherPlayer(r)}`}
               note={suggestionNote(r)}
+              status={
+                passed ? (
+                  <span className="text-slate-500">This date has passed.</span>
+                ) : (
+                  conflict && <span className="font-medium text-amber-800">{conflict}</span>
+                )
+              }
               extra={
                 !passed && (
                   <ChangeTimeForm
@@ -84,26 +92,20 @@ export default async function RequestsPage() {
                 )
               }
             >
-              {passed ? (
-                <span className="text-sm text-gray-500">This date has passed.</span>
-              ) : conflict ? (
-                <span className="text-sm text-amber-700">{conflict}</span>
-              ) : (
-                <ActionButton action={acceptRequest} id={r.id} label="Accept" primary />
-              )}
+              {!passed && !conflict && <ActionButton action={acceptRequest} id={r.id} label="Accept" primary />}
               <ActionButton action={declineRequest} id={r.id} label="Decline" />
             </Row>
           );
         })}
-      </Section>
+      </RequestList>
 
-      <Section
+      <RequestList
         title="Sent"
         count={sent.length}
         empty={
           <>
             No pending requests you&apos;ve sent.{" "}
-            <Link href="/players" className="text-blue-600 underline">
+            <Link href="/players" className="link">
               Find players
             </Link>{" "}
             to send one.
@@ -118,6 +120,11 @@ export default async function RequestsPage() {
               request={r}
               who={`To ${otherPlayer(r)}`}
               note={suggestionNote(r)}
+              status={
+                <span className="text-slate-500">
+                  {passed ? "This date has passed." : `Waiting for ${otherPlayer(r)} to respond.`}
+                </span>
+              }
               extra={
                 !passed && (
                   <ChangeTimeForm
@@ -130,23 +137,37 @@ export default async function RequestsPage() {
                 )
               }
             >
-              <span className="text-sm text-gray-500">
-                {passed ? "This date has passed." : `Waiting for ${otherPlayer(r)} to respond.`}
-              </span>
               <ActionButton action={cancelRequest} id={r.id} label="Cancel" />
             </Row>
           );
         })}
-      </Section>
+      </RequestList>
 
-      <Section title="Upcoming Matches" count={upcoming.length} empty="No accepted requests yet.">
+      <RequestList title="Upcoming matches" count={upcoming.length} empty="No accepted requests yet.">
         {upcoming.map((r) => (
           <Row
             key={r.id}
             request={r}
             who={`With ${otherPlayer(r)}`}
+            status={
+              !hasArrived(r.date) && <span className="text-slate-500">You can mark it completed on match day.</span>
+            }
             extra={
               <>
+                {hasArrived(r.date) && (
+                  <form action={completeMatch} className="mb-3 flex flex-wrap gap-2">
+                    <input type="hidden" name="id" value={r.id} />
+                    <input
+                      name="result"
+                      aria-label="Result"
+                      placeholder="Result (ex: Won 21-15)"
+                      className="field max-w-60 flex-1 sm:h-9"
+                    />
+                    <button type="submit" className="btn btn-primary btn-sm">
+                      Mark completed
+                    </button>
+                  </form>
+                )}
                 {r.reschedule && rescheduleNotice(r)}
                 <ChangeTimeForm
                   key={formKey(r)}
@@ -158,30 +179,19 @@ export default async function RequestsPage() {
               </>
             }
           >
-            {hasArrived(r.date) ? (
-              <form action={completeMatch} className="flex gap-2">
-                <input type="hidden" name="id" value={r.id} />
-                <input name="result" placeholder="Result (ex: Won 21-15)" className="rounded border p-1 text-sm" />
-                <button type="submit" className="rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white">
-                  Mark Completed
-                </button>
-              </form>
-            ) : (
-              <span className="text-sm text-gray-500">You can mark it completed on match day.</span>
-            )}
             <ActionButton action={cancelRequest} id={r.id} label="Cancel" />
           </Row>
         ))}
-      </Section>
+      </RequestList>
 
-      <Section title="Declined & Cancelled" count={closed.length} empty="Nothing here.">
+      <RequestList title="Declined & cancelled" count={closed.length} empty="Nothing here.">
         {closed.map((r) => (
-          <Row key={r.id} request={r} who={`${r.fromUserId === user.id ? "To" : "From"} ${otherPlayer(r)}`}>
-            <span className="text-sm text-gray-500">{closedLabel(r)}</span>
+          <Row key={r.id} request={r} who={`${r.fromUserId === user.id ? "To" : "From"} ${otherPlayer(r)}`} muted>
+            <span className="chip">{closedLabel(r)}</span>
           </Row>
         ))}
-      </Section>
-    </Card>
+      </RequestList>
+    </PageShell>
   );
 
   // A new time one player suggested for an accepted match.
@@ -193,21 +203,21 @@ export default async function RequestsPage() {
     const place = proposal.location && proposal.location !== r.location ? ` at ${proposal.location}` : "";
 
     return (
-      <div className="mt-2 rounded bg-blue-50 p-3 text-sm text-blue-800">
+      <div className="mb-3 rounded-lg bg-brand-50 px-3.5 py-3 text-sm text-brand-900">
         <p>
           {mine ? "You asked to move this to " : `${otherPlayer(r)} wants to move this to `}
-          {when(proposal)}
+          <span className="font-semibold">{when(proposal)}</span>
           {place}.
         </p>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
           {mine ? (
             <ActionButton action={keepCurrentTime} id={r.id} label="Withdraw" />
           ) : (
             <>
               {passed ? (
-                <span className="text-gray-500">That date has passed.</span>
+                <span className="text-slate-500">That date has passed.</span>
               ) : conflict ? (
-                <span className="text-amber-700">{conflict}</span>
+                <span className="font-medium text-amber-800">{conflict}</span>
               ) : (
                 <ActionButton action={acceptNewTime} id={r.id} label="Accept new time" primary />
               )}
@@ -220,7 +230,7 @@ export default async function RequestsPage() {
   }
 }
 
-function Section({
+function RequestList({
   title,
   count,
   empty,
@@ -232,43 +242,57 @@ function Section({
   children: React.ReactNode[];
 }) {
   return (
-    <section className="mb-6">
-      <h2 className="mb-3 text-lg font-semibold">
-        {title}
-        {count > 0 && <span className="ml-2 text-sm font-normal text-gray-500">({count})</span>}
-      </h2>
-      {children.length === 0 ? <p className="text-gray-500">{empty}</p> : <div className="space-y-2">{children}</div>}
-    </section>
+    <Section title={title} count={count}>
+      {children.length === 0 ? <Empty>{empty}</Empty> : <ul className="-my-4 divide-y divide-slate-100">{children}</ul>}
+    </Section>
   );
 }
 
+// One request: date and time, then the details, then actions. The three
+// columns stack when the page is narrow.
 function Row({
   request: r,
   who,
   note,
+  status,
   extra,
+  muted,
   children,
 }: {
   request: PlayRequest;
   who: string;
   note?: string;
+  status?: React.ReactNode;
   extra?: React.ReactNode;
+  muted?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded border p-3">
-      <p className="font-medium">
-        {r.sport} · {who}
-      </p>
-      <p className="text-sm text-gray-600">
-        {when(r)}
-        {r.location && ` · ${r.location}`}
-      </p>
-      {note && <p className="text-sm text-gray-600">{note}</p>}
-      {r.message && <p className="mt-1 text-sm italic">&ldquo;{r.message}&rdquo;</p>}
-      <div className="mt-2 flex flex-wrap items-center gap-2">{children}</div>
-      {extra}
-    </div>
+    <li className={`py-4 ${muted ? "opacity-70" : ""}`}>
+      <div className="grid gap-x-6 gap-y-3 @2xl:grid-cols-[10.5rem_1fr_auto]">
+        <div>
+          <p className="font-semibold text-slate-900">{formatShortDate(r.date)}</p>
+          <p className="mt-0.5 flex items-center gap-1 text-sm whitespace-nowrap text-slate-500 tabular-nums">
+            <ClockIcon className="size-4 shrink-0" />
+            {formatTimeRange(r.time, durationOf(r))}
+          </p>
+        </div>
+
+        <div className="min-w-0 space-y-1 text-sm">
+          <p className="font-semibold text-slate-900">{r.sport}</p>
+          <p className="text-slate-600">
+            {who}
+            {r.location && ` · ${r.location}`}
+          </p>
+          {note && <p className="text-slate-600">{note}</p>}
+          {r.message && <p className="text-slate-600 italic">&ldquo;{r.message}&rdquo;</p>}
+          {status && <p>{status}</p>}
+        </div>
+
+        <div className="flex flex-wrap items-start gap-2 @2xl:justify-end">{children}</div>
+      </div>
+      {extra && <div className="mt-3 @2xl:pl-[12rem]">{extra}</div>}
+    </li>
   );
 }
 
@@ -286,10 +310,7 @@ function ActionButton({
   return (
     <form action={action}>
       <input type="hidden" name="id" value={id} />
-      <button
-        type="submit"
-        className={`rounded px-3 py-1 text-sm font-medium ${primary ? "bg-blue-600 text-white" : "border"}`}
-      >
+      <button type="submit" className={`btn btn-sm ${primary ? "btn-primary" : "btn-secondary"}`}>
         {label}
       </button>
     </form>
