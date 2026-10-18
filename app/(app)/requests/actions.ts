@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import * as db from "@/lib/db";
 import { currentUserId, oneOf, text } from "@/lib/action-helpers";
-import { hasPassed, isValidDate } from "@/lib/time";
+import { hasArrived, hasPassed, isValidDate } from "@/lib/time";
 
 export type SendRequestState = { error?: string; sent?: boolean };
 
@@ -72,11 +72,12 @@ export async function cancelRequest(form: FormData) {
   revalidatePath("/players");
 }
 
+// A match can be marked completed starting on the day it's scheduled.
 export async function completeMatch(form: FormData) {
   const userId = await currentUserId();
   await db.updateRequest(
     text(form, "id"),
-    (r) => r.status === "accepted" && (r.fromUserId === userId || r.toUserId === userId),
+    (r) => r.status === "accepted" && hasArrived(r.date) && (r.fromUserId === userId || r.toUserId === userId),
     { status: "completed", completedAt: new Date().toISOString(), result: text(form, "result") },
   );
   revalidatePath("/requests");

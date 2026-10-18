@@ -76,6 +76,11 @@ export function nextDateFor(day: string, from: Date) {
   return toDateString(date);
 }
 
+// True on or after the given date.
+export function hasArrived(date: string) {
+  return date <= toDateString(new Date());
+}
+
 // True once a date is clearly in the past. Allows a day of slack because the
 // server's clock may be in a different timezone than the players.
 export function hasPassed(date: string) {

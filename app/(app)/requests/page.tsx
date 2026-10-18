@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { getProfiles, getRequestsFor, type PlayRequest } from "@/lib/db";
-import { formatDate, formatTime, hasPassed } from "@/lib/time";
+import { formatDate, formatTime, hasArrived, hasPassed } from "@/lib/time";
 import { acceptRequest, cancelRequest, completeMatch, declineRequest } from "./actions";
 import { Card } from "../components/Card";
 
@@ -69,13 +69,17 @@ export default async function RequestsPage() {
       <Section title="Upcoming Matches" count={upcoming.length} empty="No accepted requests yet.">
         {upcoming.map((r) => (
           <Row key={r.id} request={r} who={`With ${otherPlayer(r)}`}>
-            <form action={completeMatch} className="flex gap-2">
-              <input type="hidden" name="id" value={r.id} />
-              <input name="result" placeholder="Result (ex: Won 21-15)" className="rounded border p-1 text-sm" />
-              <button type="submit" className="rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white">
-                Mark Completed
-              </button>
-            </form>
+            {hasArrived(r.date) ? (
+              <form action={completeMatch} className="flex gap-2">
+                <input type="hidden" name="id" value={r.id} />
+                <input name="result" placeholder="Result (ex: Won 21-15)" className="rounded border p-1 text-sm" />
+                <button type="submit" className="rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white">
+                  Mark Completed
+                </button>
+              </form>
+            ) : (
+              <span className="text-sm text-gray-500">You can mark it completed on match day.</span>
+            )}
             <ActionButton action={cancelRequest} id={r.id} label="Cancel" />
           </Row>
         ))}
