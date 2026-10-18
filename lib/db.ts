@@ -20,6 +20,8 @@ export const SPORTS = [
 export const SKILL_LEVELS = ["Beginner", "Intermediate", "Advanced"] as const;
 export const PLAY_STYLES = ["Casual", "Competitive", "Either"] as const;
 export const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+export const DISTANCE_RANGES = ["5 miles", "10 miles", "25 miles", "50+ miles"] as const;
+export const GROUP_SIZES = ["1-on-1", "Small Group", "Large Group", "Any"] as const;
 
 export type Profile = {
   id: string; // WorkOS user id
@@ -29,6 +31,8 @@ export type Profile = {
   skillLevel: string;
   location: string;
   playStyle: string;
+  preferredDistance: string;
+  preferredGroupSize: string;
 };
 
 export type Availability = {
@@ -99,7 +103,7 @@ export async function upsertUser(user: { id: string; email: string; firstName: s
       profile.name = name;
       profile.email = user.email;
     } else {
-      data.profiles.push({ id: user.id, name, email: user.email, sports: [], skillLevel: "", location: "", playStyle: "" });
+      data.profiles.push({ id: user.id, name, email: user.email, sports: [], skillLevel: "", location: "", playStyle: "", preferredDistance: "", preferredGroupSize: ""});
     }
   });
 }
@@ -114,7 +118,7 @@ export async function getProfiles() {
 
 export async function savePreferences(
   userId: string,
-  prefs: Pick<Profile, "sports" | "skillLevel" | "location" | "playStyle">,
+  prefs: Pick<Profile, "sports" | "skillLevel" | "location" | "playStyle"| "preferredDistance" | "preferredGroupSize">,
 ) {
   await update((data) => {
     const profile = data.profiles.find((p) => p.id === userId);
