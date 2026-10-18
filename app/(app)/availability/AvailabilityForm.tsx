@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { addAvailability as saveAvailability, removeAvailability as deleteAvailability } from "./actions";
+import { formatTime, to24Hour } from "@/lib/time";
 
 // Definte the data stored for each component of the availability entry.
 type Availability = {
@@ -10,28 +11,6 @@ type Availability = {
   startTime: string;
   endTime: string;
 };
-
-// Convert 24-hour time to 12-hour format for display.
-function formatTime(time: string) {
-  const [hours, minutes] = time.split(":").map(Number);
-  const period = hours >= 12 ? "PM" : "AM";
-  const hour = hours % 12 || 12;
-
-  return `${hour}:${String(minutes).padStart(2, "0")} ${period}`;
-}
-
-// Convert 12-hour time selections to 24-hour format for saving.
-function to24Hour(hour: string, minute: string, period: string) {
-  let h = Number(hour);
-
-  if (period === "AM" && h === 12) {
-    h = 0;
-  } else if (period === "PM" && h !== 12) {
-    h += 12;
-  }
-
-  return `${String(h).padStart(2, "0")}:${minute}`;
-}
 
 export default function AvailabilityForm({ availability }: { availability: Availability[] }) {
   const [day, setDay] = useState("Monday");
@@ -47,8 +26,10 @@ export default function AvailabilityForm({ availability }: { availability: Avail
   function addAvailability() {
     setError("");
 
-     const startTime = to24Hour(startHour, startMinute, startPeriod);
-     const endTime = to24Hour(endHour, endMinute, endPeriod);
+    const startTime = to24Hour(startHour, startMinute, startPeriod);
+    const selectedEnd = to24Hour(endHour, endMinute, endPeriod);
+    // An end time of 12:00 AM means midnight at the end of the day.
+    const endTime = selectedEnd === "00:00" ? "24:00" : selectedEnd;
 
     if (!startTime || !endTime) {
       setError("Please select both a start time and an end time.");
@@ -56,13 +37,22 @@ export default function AvailabilityForm({ availability }: { availability: Avail
     }
 
     if (endTime <= startTime) {
-      setError("End time must be later than start time.");
+      setError(
+        startPeriod === "PM" && endPeriod === "AM"
+          ? "Availability can't go past midnight. Add the rest as a separate entry for the next day."
+          : "End time must be later than start time."
+      );
       return;
     }
 
     startTransition(async () => {
       try {
-        await saveAvailability({ day, startTime, endTime });
+        const result = await saveAvailability({ day, startTime, endTime });
+
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
 
         setStartHour("12");
         setStartMinute("00");
@@ -72,7 +62,7 @@ export default function AvailabilityForm({ availability }: { availability: Avail
         setEndMinute("00");
         setEndPeriod("PM");
       } catch {
-        setError("Unable to save availability. his time may overlap with an existing entry.");
+        setError("Unable to save availability. Please try again.");
       }
     });
   }

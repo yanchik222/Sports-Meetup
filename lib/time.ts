@@ -12,10 +12,11 @@ function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 
-// Convert 24-hour time to 12-hour format for display.
+// Convert 24-hour time to 12-hour format for display. "24:00" is midnight at
+// the end of the day.
 export function formatTime(time: string) {
   const [hours, minutes] = time.split(":").map(Number);
-  const period = hours >= 12 ? "PM" : "AM";
+  const period = hours >= 12 && hours < 24 ? "PM" : "AM";
   const hour = hours % 12 || 12;
 
   return `${hour}:${pad(minutes)} ${period}`;
