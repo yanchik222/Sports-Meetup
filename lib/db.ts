@@ -45,6 +45,16 @@ export type Availability = {
 
 export type RequestStatus = "pending" | "accepted" | "declined" | "cancelled" | "completed";
 
+// A new time one player suggested for an accepted match. The match keeps its
+// current time until the other player accepts.
+export type Reschedule = {
+  date: string;
+  time: string;
+  duration: number;
+  location: string;
+  proposedBy: string;
+};
+
 export type PlayRequest = {
   id: string;
   fromUserId: string;
@@ -52,10 +62,15 @@ export type PlayRequest = {
   sport: string;
   date: string;
   time: string;
+  duration?: number; // minutes; missing on requests made before durations existed
   location: string;
   message: string;
   status: RequestStatus;
+  proposedBy?: string; // who suggested the current time if it isn't fromUserId
+  reschedule?: Reschedule;
   createdAt: string;
+  updatedAt?: string;
+  cancelledBy?: string;
   completedAt?: string;
   result?: string;
 };
@@ -147,26 +162,39 @@ export async function removeAvailability(userId: string, id: string) {
 
 // Play requests
 
+export async function getRequests() {
+  return (await load()).requests;
+}
+
 export async function getRequestsFor(userId: string) {
   return (await load()).requests.filter((r) => r.fromUserId === userId || r.toUserId === userId);
 }
 
-export async function createRequest(req: Omit<PlayRequest, "id" | "status" | "createdAt">) {
-  await update((data) => {
+type NewRequest = Pick<PlayRequest, "fromUserId" | "toUserId" | "sport" | "date" | "time" | "duration" | "location" | "message">;
+
+// Adds the request only if `allowed` approves it against the current requests.
+// The check runs inside the write lock so two requests can't both slip through.
+export async function createRequest(req: NewRequest, allowed: (requests: PlayRequest[]) => boolean) {
+  return update((data) => {
+    if (!allowed(data.requests)) return false;
     data.requests.push({ id: randomUUID(), status: "pending", createdAt: new Date().toISOString(), ...req });
+    return true;
   });
 }
 
-// Applies a status change only if `allowed` approves it for this user.
+type RequestChanges = Partial<Omit<PlayRequest, "id" | "fromUserId" | "toUserId" | "createdAt">>;
+
+// Applies changes only if `allowed` approves them for this request, checked
+// against the current requests inside the write lock.
 export async function updateRequest(
   id: string,
-  allowed: (req: PlayRequest) => boolean,
-  changes: Partial<Pick<PlayRequest, "status" | "completedAt" | "result">>,
+  allowed: (req: PlayRequest, requests: PlayRequest[]) => boolean,
+  changes: RequestChanges | ((req: PlayRequest) => RequestChanges),
 ) {
   return update((data) => {
     const req = data.requests.find((r) => r.id === id);
-    if (!req || !allowed(req)) return false;
-    Object.assign(req, changes);
+    if (!req || !allowed(req, data.requests)) return false;
+    Object.assign(req, typeof changes === "function" ? changes(req) : changes, { updatedAt: new Date().toISOString() });
     return true;
   });
 }

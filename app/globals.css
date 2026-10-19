@@ -1,26 +1,111 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-outfit);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/*
+ * SportMatch accent: light orange. Buttons use brand-300 with brand-900 text
+ * (about 6.5:1 contrast). Text links use brand-700 so they stay readable on white.
+ */
+@theme {
+  --color-brand-50: #fff7ed;
+  --color-brand-100: #ffedd5;
+  --color-brand-200: #fed7aa;
+  --color-brand-300: #fdba74;
+  --color-brand-400: #fb923c;
+  --color-brand-700: #c2410c;
+  --color-brand-800: #9a3412;
+  --color-brand-900: #7c2d12;
+}
+
+html {
+  background-color: #ffffff;
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: #0f172a; /* slate-900 */
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+summary {
+  list-style: none;
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
+/*
+ * Shape rule: controls are 8px (rounded-lg), chips and badges are full pills,
+ * avatars are round. Content sits on the page background; there are no cards
+ * around sections, only dividers.
+ */
+@layer components {
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-slate-700;
+  }
+
+  /* 16px text on phones so iOS doesn't zoom into fields. */
+  .field {
+    @apply h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900 transition placeholder:text-slate-400 hover:border-slate-400 focus:border-brand-400 focus:ring-3 focus:ring-brand-200/70 focus:outline-none sm:h-10 sm:text-sm;
+  }
+
+  select.field {
+    @apply cursor-pointer appearance-none pr-8;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+    background-position: right 0.6rem center;
+    background-repeat: no-repeat;
+    background-size: 1rem;
+  }
+
+  .btn {
+    @apply inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold whitespace-nowrap transition-colors select-none focus-visible:ring-3 focus-visible:ring-brand-300 focus-visible:outline-none active:translate-y-px disabled:pointer-events-none disabled:opacity-50 sm:h-10;
+  }
+
+  .btn-sm {
+    @apply h-10 px-3.5 sm:h-9;
+  }
+
+  .btn-primary {
+    @apply bg-brand-300 text-brand-900 hover:bg-brand-400;
+  }
+
+  .btn-secondary {
+    @apply border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+  }
+
+  .btn-ghost {
+    @apply text-slate-600 hover:bg-slate-100 hover:text-slate-900;
+  }
+
+  .btn-danger {
+    @apply text-red-700 hover:bg-red-50;
+  }
+
+  .link {
+    @apply font-semibold text-brand-700 underline-offset-2 hover:underline;
+  }
+
+  /* Text-style toggle for <summary> elements. */
+  .disclosure {
+    @apply inline-flex cursor-pointer items-center gap-1.5 rounded-md py-1 text-sm font-semibold text-brand-700 transition-colors select-none hover:text-brand-800 focus-visible:ring-3 focus-visible:ring-brand-300 focus-visible:outline-none;
+  }
+
+  .chip {
+    @apply inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700;
+  }
+
+  .chip-brand {
+    @apply bg-brand-100 text-brand-900;
+  }
 }

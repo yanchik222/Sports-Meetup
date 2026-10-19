@@ -2,6 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { addAvailability as saveAvailability, removeAvailability as deleteAvailability } from "./actions";
+import { formatTime, to24Hour } from "@/lib/time";
+import { CalendarIcon, PlusIcon } from "../components/icons";
+import { Empty, Section } from "../components/ui";
+
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1));
+const MINUTES = ["00", "15", "30", "45"];
 
 // Definte the data stored for each component of the availability entry.
 type Availability = {
@@ -10,28 +17,6 @@ type Availability = {
   startTime: string;
   endTime: string;
 };
-
-// Convert 24-hour time to 12-hour format for display.
-function formatTime(time: string) {
-  const [hours, minutes] = time.split(":").map(Number);
-  const period = hours >= 12 ? "PM" : "AM";
-  const hour = hours % 12 || 12;
-
-  return `${hour}:${String(minutes).padStart(2, "0")} ${period}`;
-}
-
-// Convert 12-hour time selections to 24-hour format for saving.
-function to24Hour(hour: string, minute: string, period: string) {
-  let h = Number(hour);
-
-  if (period === "AM" && h === 12) {
-    h = 0;
-  } else if (period === "PM" && h !== 12) {
-    h += 12;
-  }
-
-  return `${String(h).padStart(2, "0")}:${minute}`;
-}
 
 export default function AvailabilityForm({ availability }: { availability: Availability[] }) {
   const [day, setDay] = useState("Monday");
@@ -47,8 +32,10 @@ export default function AvailabilityForm({ availability }: { availability: Avail
   function addAvailability() {
     setError("");
 
-     const startTime = to24Hour(startHour, startMinute, startPeriod);
-     const endTime = to24Hour(endHour, endMinute, endPeriod);
+    const startTime = to24Hour(startHour, startMinute, startPeriod);
+    const selectedEnd = to24Hour(endHour, endMinute, endPeriod);
+    // An end time of 12:00 AM means midnight at the end of the day.
+    const endTime = selectedEnd === "00:00" ? "24:00" : selectedEnd;
 
     if (!startTime || !endTime) {
       setError("Please select both a start time and an end time.");
@@ -56,13 +43,22 @@ export default function AvailabilityForm({ availability }: { availability: Avail
     }
 
     if (endTime <= startTime) {
-      setError("End time must be later than start time.");
+      setError(
+        startPeriod === "PM" && endPeriod === "AM"
+          ? "Availability can't go past midnight. Add the rest as a separate entry for the next day."
+          : "End time must be later than start time."
+      );
       return;
     }
 
     startTransition(async () => {
       try {
-        await saveAvailability({ day, startTime, endTime });
+        const result = await saveAvailability({ day, startTime, endTime });
+
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
 
         setStartHour("12");
         setStartMinute("00");
@@ -72,7 +68,7 @@ export default function AvailabilityForm({ availability }: { availability: Avail
         setEndMinute("00");
         setEndPeriod("PM");
       } catch {
-        setError("Unable to save availability. his time may overlap with an existing entry.");
+        setError("Unable to save availability. Please try again.");
       }
     });
   }
@@ -83,149 +79,124 @@ export default function AvailabilityForm({ availability }: { availability: Avail
 
   // Define the UI for the page and allow users to select availability.
   return (
-    <main className="flex-1 p-8 text-black">
-      <div className="mx-auto max-w-2xl rounded-lg bg-white p-8 shadow">
-        <h1 className="mb-2 text-3xl font-bold">Sports Meetup</h1>  
-
-        <h2 className="mb-6 text-xl font-semibold"> 
-          Player Availability 
-        </h2>
-
-        <div className="mb-6 space-y-4">
-          <div>
-            <label className="mb-1 block font-medium">Day</label>
-
-            <select
-              value={day}
-              onChange={(event) => setDay(event.target.value)}
-              className="w-full rounded border p-2"
-            >
-              <option>Monday</option>
-              <option>Tuesday</option>
-              <option>Wednesday</option>
-              <option>Thursday</option>
-              <option>Friday</option>
-              <option>Saturday</option>
-              <option>Sunday</option>
+    <>
+      <Section side title="Add a time slot" description="Pick a day and the hours you're usually free.">
+        <div className="grid gap-4 @lg:grid-cols-2 @4xl:grid-cols-[0.8fr_1fr_1fr]">
+          <div className="@lg:col-span-2 @4xl:col-span-1">
+            <label className="label">Day</label>
+            <select value={day} onChange={(event) => setDay(event.target.value)} className="field">
+              {DAYS.map((d) => (
+                <option key={d}>{d}</option>
+              ))}
             </select>
           </div>
 
-          <div>
-            <label className="mb-1 block font-medium">Start Time</label>
+          <TimeSelect
+            label="Start time"
+            hour={startHour}
+            minute={startMinute}
+            period={startPeriod}
+            onHour={setStartHour}
+            onMinute={setStartMinute}
+            onPeriod={setStartPeriod}
+          />
 
-            <div className="flex gap-2">
-              <select
-                value={startHour}
-                onChange={(event) => setStartHour(event.target.value)}
-                className="w-1/3 rounded border p-2"
-              >
-                {Array.from({ length: 12 }, (_, i) => String(i + 1)).map((hour) => (
-                  <option key={hour} value={hour}>{hour}</option>
-                ))}
-              </select>
+          <TimeSelect
+            label="End time"
+            hour={endHour}
+            minute={endMinute}
+            period={endPeriod}
+            onHour={setEndHour}
+            onMinute={setEndMinute}
+            onPeriod={setEndPeriod}
+          />
+        </div>
 
-              <select
-                value={startMinute}
-                onChange={(event) => setStartMinute(event.target.value)}
-                className="w-1/3 rounded border p-2"
-              >
-                {["00", "15", "30", "45"].map((minute) => (
-                  <option key={minute} value={minute}>{minute}</option>
-                ))}
-              </select>
-
-              <select
-                value={startPeriod}
-                onChange={(event) => setStartPeriod(event.target.value)}
-                className="w-1/3 rounded border p-2"
-              >
-                <option value="AM">AM</option>
-                <option value="PM">PM</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-1 block font-medium">End Time</label>
-
-            <div className="flex gap-2">
-              <select
-                value={endHour}
-                onChange={(event) => setEndHour(event.target.value)}
-                className="w-1/3 rounded border p-2"
-              >
-                {Array.from({ length: 12 }, (_, i) => String(i + 1)).map((hour) => (
-                  <option key={hour} value={hour}>{hour}</option>
-                ))}
-              </select>
-
-              <select
-                value={endMinute}
-                onChange={(event) => setEndMinute(event.target.value)}
-                className="w-1/3 rounded border p-2"
-              >
-                {["00", "15", "30", "45"].map((minute) => (
-                  <option key={minute} value={minute}>{minute}</option>
-                ))}
-              </select>
-
-              <select
-                value={endPeriod}
-                onChange={(event) => setEndPeriod(event.target.value)}
-                className="w-1/3 rounded border p-2"
-              >
-                <option value="AM">AM</option>
-                <option value="PM">PM</option>
-              </select>
-            </div>
-          </div>
-
-          <button
-            onClick={addAvailability}
-            disabled={pending}
-            className="rounded bg-blue-600 px-4 py-2 font-medium text-white disabled:opacity-50"
-          >
-            Add Availability
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button onClick={addAvailability} disabled={pending} className="btn btn-primary">
+            <PlusIcon className="size-4" weight="bold" />
+            Add time slot
           </button>
           {error && (
-            <p className="mt-2 text-sm text-red-600">
+            <p role="alert" className="text-sm font-medium text-red-700">
               {error}
             </p>
           )}
         </div>
+      </Section>
 
-        <div>
-          <h3 className="mb-3 text-lg font-semibold">
-            Current Availability
-          </h3>
-
-          {availability.length === 0 ? (
-            <p className="text-gray-500">
-              No availability added yet.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {availability.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between rounded border p-3"
-                >
-                  <span>
-                    {item.day}: {formatTime(item.startTime)} - {formatTime(item.endTime)}
+      <Section
+        side
+        title="Your availability"
+        description="Players see these times when they search."
+        count={availability.length}
+      >
+        {availability.length === 0 ? (
+          <Empty>No availability added yet. Add the times you&apos;re free so other players can find you.</Empty>
+        ) : (
+          <ul className="-my-2 divide-y divide-slate-100">
+            {availability.map((item) => (
+              <li key={item.id} className="flex items-center gap-3 py-2.5">
+                <CalendarIcon className="size-5 shrink-0 text-brand-700" />
+                <p className="min-w-0 flex-1 text-sm">
+                  <span className="font-semibold text-slate-900">{item.day}</span>
+                  <span className="ml-2 text-slate-500 tabular-nums">
+                    {formatTime(item.startTime)} - {formatTime(item.endTime)}
                   </span>
+                </p>
+                <button onClick={() => removeAvailability(item.id)} className="btn btn-danger btn-sm">
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+    </>
+  );
+}
 
-                  <button
-                    onClick={() => removeAvailability(item.id)}
-                    className="text-red-600"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+// Hour, minute, and AM/PM dropdowns for one time.
+function TimeSelect({
+  label,
+  hour,
+  minute,
+  period,
+  onHour,
+  onMinute,
+  onPeriod,
+}: {
+  label: string;
+  hour: string;
+  minute: string;
+  period: string;
+  onHour: (value: string) => void;
+  onMinute: (value: string) => void;
+  onPeriod: (value: string) => void;
+}) {
+  return (
+    <fieldset>
+      <legend className="label">{label}</legend>
+      <div className="grid grid-cols-3 gap-1.5">
+        <select aria-label={`${label} hour`} value={hour} onChange={(event) => onHour(event.target.value)} className="field pr-7 pl-3">
+          {HOURS.map((h) => (
+            <option key={h} value={h}>
+              {h}
+            </option>
+          ))}
+        </select>
+        <select aria-label={`${label} minute`} value={minute} onChange={(event) => onMinute(event.target.value)} className="field pr-7 pl-3">
+          {MINUTES.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
+        <select aria-label={`${label} AM or PM`} value={period} onChange={(event) => onPeriod(event.target.value)} className="field pr-7 pl-3">
+          <option value="AM">AM</option>
+          <option value="PM">PM</option>
+        </select>
       </div>
-    </main>
+    </fieldset>
   );
 }
